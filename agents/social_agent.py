@@ -3,7 +3,8 @@ import requests
 import json
 import re
 from bs4 import BeautifulSoup
-from .base_agent import BaseAgent
+from agents.base_agent import BaseAgent
+
 
 class SocialAgent(BaseAgent):
     """Agente per l'analisi dei social media"""
