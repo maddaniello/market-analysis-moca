@@ -2,6 +2,8 @@ from typing import Dict, Any, List
 import requests
 import os
 import sys
+from agents.base_agent import BaseAgent
+
 
 # Aggiungi il path per gli import
 current_dir = os.path.dirname(os.path.abspath(__file__))
