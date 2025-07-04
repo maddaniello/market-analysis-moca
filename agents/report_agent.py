@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 import json
 import datetime
-from .base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 
 class ReportAgent(BaseAgent):
     """Agente per generare report completi di analisi marketing"""
