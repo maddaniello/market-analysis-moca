@@ -1,7 +1,23 @@
 from typing import Dict, Any, List
 import requests
-from .base_agent import BaseAgent
-from config import SEMRUSH_BASE_URL
+import os
+import sys
+
+# Aggiungi il path per gli import
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+try:
+    from agents.base_agent import BaseAgent
+    from config import SEMRUSH_BASE_URL
+except ImportError:
+    # Fallback per import relativi
+    from .base_agent import BaseAgent
+    try:
+        from config import SEMRUSH_BASE_URL
+    except ImportError:
+        SEMRUSH_BASE_URL = "https://api.semrush.com/"
 
 class SEMRushAgent(BaseAgent):
     """Agente per l'analisi dei dati SEMRush"""
