@@ -1,23 +1,35 @@
 import streamlit as st
 import os
+import sys
 import json
 import logging
 from datetime import datetime
 from typing import Dict, Any
 
-# Import degli agenti
-from agents.semrush_agent import SEMRushAgent
-from agents.serper_agent import SerperAgent
-from agents.social_agent import SocialAgent
-from agents.company_agent import CompanyAgent
-from agents.report_agent import ReportAgent
+# Aggiungi la directory corrente al path Python
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
 
-# Import delle utilities
-from utils.validators import InputValidator
-from utils.data_processor import DataProcessor
-
-# Import delle configurazioni
-from config import APIConfig, AppConfig
+try:
+    # Import degli agenti con gestione errori
+    from agents.base_agent import BaseAgent
+    from agents.semrush_agent import SEMRushAgent
+    from agents.serper_agent import SerperAgent
+    from agents.social_agent import SocialAgent
+    from agents.company_agent import CompanyAgent
+    from agents.report_agent import ReportAgent
+    
+    # Import delle utilities
+    from utils.validators import InputValidator
+    from utils.data_processor import DataProcessor
+    
+    # Import delle configurazioni
+    from config import APIConfig, AppConfig
+    
+    MODULES_LOADED = True
+except ImportError as e:
+    MODULES_LOADED = False
+    IMPORT_ERROR = str(e)
 
 # Configurazione logging
 logging.basicConfig(level=logging.INFO)
@@ -36,11 +48,14 @@ class MarketingAnalyzer:
     
     def __init__(self):
         self.api_config = None
-        self.app_config = AppConfig()
+        self.app_config = AppConfig() if MODULES_LOADED else None
         self.agents = {}
         
     def setup_api_config(self) -> bool:
         """Configura le API keys"""
+        if not MODULES_LOADED:
+            return False
+            
         try:
             # Prova prima dalle variabili d'ambiente
             self.api_config = APIConfig.from_env()
@@ -60,7 +75,7 @@ class MarketingAnalyzer:
     
     def initialize_agents(self):
         """Inizializza tutti gli agenti"""
-        if not self.api_config:
+        if not self.api_config or not MODULES_LOADED:
             return False
         
         try:
@@ -78,6 +93,9 @@ class MarketingAnalyzer:
     
     def run_analysis(self, company_input: str) -> Dict[str, Any]:
         """Esegue l'analisi completa"""
+        
+        if not MODULES_LOADED:
+            return {"error": "Moduli non caricati correttamente"}
         
         # Valida input
         is_valid, input_type, company_data = InputValidator.validate_company_input(company_input)
@@ -180,6 +198,47 @@ class MarketingAnalyzer:
             st.error(f"Errore durante l'analisi: {str(e)}")
             return {"error": str(e)}
 
+def check_modules_status():
+    """Verifica lo stato dei moduli"""
+    if not MODULES_LOADED:
+        st.error("❌ Errore nel caricamento dei moduli")
+        st.error(f"Dettaglio errore: {IMPORT_ERROR}")
+        
+        st.markdown("""
+        ### 🔧 Come risolvere:
+        
+        1. **Verifica la struttura dei file**:
+        ```
+        marketing_analyzer/
+        ├── app.py
+        ├── config.py
+        ├── requirements.txt
+        ├── agents/
+        │   ├── __init__.py
+        │   ├── base_agent.py
+        │   ├── semrush_agent.py
+        │   ├── serper_agent.py
+        │   ├── social_agent.py
+        │   ├── company_agent.py
+        │   └── report_agent.py
+        └── utils/
+            ├── __init__.py
+            ├── validators.py
+            └── data_processor.py
+        ```
+        
+        2. **Assicurati che tutti i file __init__.py esistano**
+        
+        3. **Verifica che non ci siano errori di sintassi nei file Python**
+        
+        4. **Riavvia l'applicazione**
+        """)
+        
+        return False
+    
+    st.success("✅ Tutti i moduli caricati correttamente")
+    return True
+
 def main():
     """Funzione principale dell'applicazione"""
     
@@ -187,6 +246,10 @@ def main():
     st.title("📊 Marketing Analyzer")
     st.markdown("### Analisi completa per il marketing digitale")
     st.markdown("---")
+    
+    # Verifica stato moduli
+    if not check_modules_status():
+        st.stop()
     
     # Inizializza l'analyzer
     if 'analyzer' not in st.session_state:
@@ -226,20 +289,21 @@ def main():
         st.session_state.serper_key = serper_key
         
         # Valida API keys
-        api_keys = {
-            'openai_api_key': openai_key,
-            'semrush_api_key': semrush_key,
-            'serper_api_key': serper_key
-        }
-        
-        validation_results = InputValidator.validate_api_keys(api_keys)
-        
-        st.subheader("📊 Stato API")
-        for api, is_valid in validation_results.items():
-            if is_valid:
-                st.success(f"✅ {api.upper()}")
-            else:
-                st.error(f"❌ {api.upper()}")
+        if MODULES_LOADED:
+            api_keys = {
+                'openai_api_key': openai_key,
+                'semrush_api_key': semrush_key,
+                'serper_api_key': serper_key
+            }
+            
+            validation_results = InputValidator.validate_api_keys(api_keys)
+            
+            st.subheader("📊 Stato API")
+            for api, is_valid in validation_results.items():
+                if is_valid:
+                    st.success(f"✅ {api.upper()}")
+                else:
+                    st.error(f"❌ {api.upper()}")
         
         # Info sull'app
         st.markdown("---")
@@ -287,21 +351,14 @@ def main():
                 help="Puoi inserire il nome dell'azienda, l'URL del sito web, o la partita IVA italiana"
             )
             
-            # Opzioni avanzate
-            with st.expander("🔧 Opzioni avanzate"):
-                include_social = st.checkbox("Includi analisi social media", value=True)
-                include_competitors = st.checkbox("Includi analisi competitor", value=True)
-                include_company_data = st.checkbox("Includi dati aziendali ufficiali", value=True)
-                deep_analysis = st.checkbox("Analisi approfondita (più lenta)", value=False)
-            
             submit_button = st.form_submit_button("🚀 Avvia Analisi")
         
         # Risultati dell'analisi
         if submit_button:
             if not company_input:
                 st.error("⚠️ Inserisci un nome azienda, URL o partita IVA")
-            elif not any(validation_results.values()):
-                st.error("⚠️ Configura almeno una API key nella sidebar")
+            elif not MODULES_LOADED:
+                st.error("⚠️ I moduli non sono caricati correttamente")
             else:
                 # Setup e avvio analisi
                 if st.session_state.analyzer.setup_api_config():
@@ -314,8 +371,8 @@ def main():
                         if "error" not in results:
                             st.success("🎉 Analisi completata con successo!")
                             
-                            # Mostra risultati principali
-                            display_results(results)
+                            # Mostra risultati di base
+                            st.json(results)
                         else:
                             st.error(f"Errore: {results['error']}")
     
@@ -359,292 +416,6 @@ def main():
         - Fatturato e dipendenti
         - Sede e contatti
         """)
-
-def display_results(results: Dict[str, Any]):
-    """Mostra i risultati dell'analisi"""
-    
-    if "final_report" not in results:
-        st.warning("Report non disponibile")
-        return
-    
-    report_data = results["final_report"]
-    
-    # Tab per organizzare i risultati
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Executive Summary", 
-        "🏢 Profilo Azienda", 
-        "📈 Presenza Digitale",
-        "🎯 Competitor", 
-        "📋 Report Completo"
-    ])
-    
-    with tab1:
-        display_executive_summary(report_data)
-    
-    with tab2:
-        display_company_profile(results)
-    
-    with tab3:
-        display_digital_presence(results)
-    
-    with tab4:
-        display_competitor_analysis(results)
-    
-    with tab5:
-        display_full_report(report_data)
-
-def display_executive_summary(report_data: Dict[str, Any]):
-    """Mostra executive summary"""
-    
-    structured_report = report_data.get("structured_report", {})
-    executive_summary = structured_report.get("executive_summary", {})
-    
-    # AI Summary
-    if "ai_generated_summary" in executive_summary:
-        st.subheader("🎯 Riassunto Esecutivo")
-        st.markdown(executive_summary["ai_generated_summary"])
-    
-    # Metriche chiave
-    key_metrics = executive_summary.get("key_metrics", {})
-    if key_metrics:
-        st.subheader("📊 Metriche Chiave")
-        
-        # Crea colonne per le metriche
-        metrics_cols = st.columns(4)
-        
-        metric_items = list(key_metrics.items())
-        for i, (metric, value) in enumerate(metric_items[:4]):
-            with metrics_cols[i % 4]:
-                st.metric(
-                    label=metric.replace("_", " ").title(),
-                    value=value
-                )
-    
-    # Findings critici
-    critical_findings = executive_summary.get("critical_findings", [])
-    if critical_findings:
-        st.subheader("🚨 Risultati Critici")
-        for finding in critical_findings:
-            if "🔴" in finding:
-                st.error(finding)
-            elif "🟡" in finding:
-                st.warning(finding)
-            else:
-                st.info(finding)
-    
-    # Azioni immediate
-    immediate_actions = executive_summary.get("immediate_actions", [])
-    if immediate_actions:
-        st.subheader("⚡ Azioni Immediate")
-        for action in immediate_actions:
-            st.markdown(f"- {action}")
-
-def display_company_profile(results: Dict[str, Any]):
-    """Mostra profilo azienda"""
-    
-    company_data = results.get("company_info", {})
-    company_analysis = results.get("company_analysis", {})
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📋 Informazioni Base")
-        
-        if company_data:
-            st.markdown(f"**Nome:** {company_data.get('company_name', 'N/A')}")
-            st.markdown(f"**Sito Web:** {company_data.get('website', 'N/A')}")
-            st.markdown(f"**Tipo Input:** {results.get('input_type', 'N/A')}")
-        
-        # Dati consolidati
-        consolidated = company_analysis.get("consolidated", {})
-        if consolidated:
-            st.markdown("---")
-            st.subheader("🏢 Dati Aziendali")
-            
-            st.markdown(f"**P.IVA:** {consolidated.get('vat_number', 'N/A')}")
-            st.markdown(f"**Forma Giuridica:** {consolidated.get('legal_form', 'N/A')}")
-            st.markdown(f"**Sede:** {consolidated.get('headquarters', 'N/A')}")
-            st.markdown(f"**Settore:** {consolidated.get('sector', 'N/A')}")
-    
-    with col2:
-        st.subheader("📊 Metriche Business")
-        
-        if consolidated:
-            st.metric("Dipendenti", consolidated.get('employees', 'N/A'))
-            st.metric("Fatturato", consolidated.get('revenue', 'N/A'))
-            st.metric("Capitale Sociale", consolidated.get('share_capital', 'N/A'))
-            
-            # Confidence score
-            confidence = consolidated.get('confidence_score', 0)
-            st.metric(
-                "Affidabilità Dati", 
-                f"{confidence:.1%}",
-                help="Indica l'affidabilità dei dati raccolti basata su numero e coerenza delle fonti"
-            )
-
-def display_digital_presence(results: Dict[str, Any]):
-    """Mostra analisi presenza digitale"""
-    
-    semrush_data = results.get("semrush_analysis", {})
-    social_data = results.get("social_analysis", {})
-    
-    # SEO Performance
-    if semrush_data and not semrush_data.get("error"):
-        st.subheader("🔍 Performance SEO")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        keyword_data = semrush_data.get("keywords", {})
-        backlink_data = semrush_data.get("backlinks", {})
-        
-        with col1:
-            st.metric("Keyword Organiche", keyword_data.get("total_keywords", 0))
-        
-        with col2:
-            st.metric("Posizioni Top 3", keyword_data.get("keywords_1_3", 0))
-        
-        with col3:
-            st.metric("Backlink Totali", backlink_data.get("total_backlinks", 0))
-        
-        with col4:
-            st.metric("Authority Score", backlink_data.get("authority_score", 0))
-        
-        # Top Keywords
-        top_keywords = keyword_data.get("keyword_list", [])
-        if top_keywords:
-            st.subheader("🎯 Top Keywords")
-            
-            keywords_df = []
-            for kw in top_keywords[:10]:
-                keywords_df.append({
-                    "Keyword": kw.get("keyword", ""),
-                    "Posizione": kw.get("position", 0),
-                    "Volume": kw.get("volume", 0),
-                    "Difficoltà": kw.get("difficulty", 0)
-                })
-            
-            if keywords_df:
-                import pandas as pd
-                st.dataframe(pd.DataFrame(keywords_df))
-    else:
-        st.warning("⚠️ Dati SEO non disponibili")
-    
-    # Social Media
-    if social_data and not social_data.get("error"):
-        st.subheader("📱 Presenza Social Media")
-        
-        social_analytics = social_data.get("social_analytics", {})
-        
-        if social_analytics:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric("Piattaforme Attive", len(social_analytics))
-                
-                total_followers = 0
-                for platform_data in social_analytics.values():
-                    if not platform_data.get("error"):
-                        followers = platform_data.get("followers", 0) or platform_data.get("subscribers", 0)
-                        total_followers += followers if isinstance(followers, int) else 0
-                
-                st.metric("Follower Totali", total_followers)
-            
-            with col2:
-                # Dettagli per piattaforma
-                st.markdown("**Dettagli per piattaforma:**")
-                for platform, data in social_analytics.items():
-                    if not data.get("error"):
-                        followers = data.get("followers", 0) or data.get("subscribers", 0)
-                        st.markdown(f"- **{platform.title()}:** {followers:,} follower")
-    else:
-        st.warning("⚠️ Dati social non disponibili")
-
-def display_competitor_analysis(results: Dict[str, Any]):
-    """Mostra analisi competitor"""
-    
-    serper_data = results.get("serper_analysis", {})
-    semrush_data = results.get("semrush_analysis", {})
-    
-    # Competitor da Serper
-    if serper_data and not serper_data.get("error"):
-        competitors = serper_data.get("competitors", {}).get("competitors", [])
-        
-        if competitors:
-            st.subheader("🎯 Competitor Identificati")
-            
-            for i, comp in enumerate(competitors[:5], 1):
-                with st.expander(f"{i}. {comp.get('name', 'N/A')}"):
-                    st.markdown(f"**Dominio:** {comp.get('domain', 'N/A')}")
-                    st.markdown(f"**Descrizione:** {comp.get('description', 'N/A')}")
-                    if comp.get('url'):
-                        st.markdown(f"**URL:** {comp.get('url')}")
-        
-        # Dettagli competitor
-        competitor_details = serper_data.get("competitor_details", [])
-        if competitor_details:
-            st.subheader("📊 Analisi Dettagliata Competitor")
-            
-            for detail in competitor_details[:3]:
-                comp_name = detail.get("name", "N/A")
-                
-                with st.expander(f"📈 {comp_name}"):
-                    if detail.get("services"):
-                        st.markdown("**Servizi:**")
-                        for service in detail["services"][:5]:
-                            st.markdown(f"- {service}")
-                    
-                    if detail.get("products"):
-                        st.markdown("**Prodotti:**")
-                        for product in detail["products"][:5]:
-                            st.markdown(f"- {product}")
-                    
-                    if detail.get("sector"):
-                        st.markdown(f"**Settore:** {detail['sector']}")
-    
-    # Competitor SEO da SEMRush
-    if semrush_data and not semrush_data.get("error"):
-        seo_competitors = semrush_data.get("competitors", [])
-        
-        if seo_competitors:
-            st.subheader("🔍 Competitor SEO")
-            
-            import pandas as pd
-            
-            comp_df = []
-            for comp in seo_competitors[:10]:
-                comp_df.append({
-                    "Dominio": comp.get("domain", ""),
-                    "Keywords Comuni": comp.get("common_keywords", 0),
-                    "Keywords SEO": comp.get("se_keywords", 0),
-                    "Traffico SEO": comp.get("se_traffic", 0),
-                    "Livello Competizione": comp.get("competition_level", 0)
-                })
-            
-            if comp_df:
-                st.dataframe(pd.DataFrame(comp_df))
-
-def display_full_report(report_data: Dict[str, Any]):
-    """Mostra report completo formattato"""
-    
-    formatted_report = report_data.get("formatted_report", "")
-    
-    if formatted_report:
-        st.subheader("📋 Report Completo")
-        st.markdown(formatted_report)
-        
-        # Download del report
-        st.download_button(
-            label="📥 Scarica Report",
-            data=formatted_report,
-            file_name=f"marketing_report_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
-            mime="text/markdown"
-        )
-    else:
-        st.warning("Report formattato non disponibile")
-    
-    # Dati raw per debugging (collassabile)
-    with st.expander("🔧 Dati Raw (Debug)"):
-        st.json(report_data)
 
 if __name__ == "__main__":
     main()
