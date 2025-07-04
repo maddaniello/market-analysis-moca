@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 import requests
 import json
-from .base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 from config import SERPER_BASE_URL
 
 class SerperAgent(BaseAgent):
