@@ -4,7 +4,7 @@ import json
 import re
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from .base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 from config import COMPANY_VERIFICATION_URLS
 
 class CompanyAgent(BaseAgent):
