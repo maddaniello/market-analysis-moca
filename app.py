@@ -1,5 +1,5 @@
-section += f"**URL:** {competitor.get('url', 'N/A')}\n"
-            section += f"**Descrizione:** {competitor.get('description', 'N/A')}\n"
+section += f"**URL:** {basic_info.get('url', 'N/A')}\n"
+            section += f"**Descrizione:** {basic_info.get('description', 'N/A')}\n"
             
             # Analisi SEO competitor (se disponibile)
             if "seo_analysis" in competitor:
@@ -34,7 +34,7 @@ section += f"**URL:** {competitor.get('url', 'N/A')}\n"
         section += f"**Numero competitor identificati:** {total_competitors}\n"
         
         # Analizza la distribuzione dei competitor per settore/tipologia
-        domains = [comp.get("domain", "") for comp in competitors_data if comp.get("domain")]
+        domains = [comp.get("basic_info", {}).get("domain", "") for comp in competitors_data if comp.get("basic_info", {}).get("domain")]
         section += f"**Competitor con presenza web:** {len(domains)}\n"
         
         return section
@@ -175,7 +175,7 @@ section += f"**URL:** {competitor.get('url', 'N/A')}\n"
         section += "### Sfide e Opportunità Chiave\n\n"
         
         if has_seo_data:
-            keywords_1_3 = seo_data.get("keywords", {}).get("keywords_1_3", 0)
+            keywords_1_3 = seo_data.get("keywords", {}).get("position_distribution", {}).get("1-3", 0)
             total_keywords = seo_data.get("keywords", {}).get("total_keywords", 0)
             
             if total_keywords > 0:
@@ -875,8 +875,7 @@ if __name__ == "__main__":
             show_analysis_summary(results)
     
     # Footer con branding
-    add_branding_footer()                "paid_traffic": overview.get("adwords_traffic", 0),
-                "paid_cost": overview.get("adwords_cost", 0)
+    add_branding_footer()                "paid_cost": overview.get("adwords_cost", 0)
             }
         else:
             return overview
@@ -1578,12 +1577,13 @@ class ComprehensiveReportGenerator:
         section += f"### Competitor Identificati ({len(competitors_data)})\n\n"
         
         for i, competitor in enumerate(competitors_data[:5], 1):  # Top 5 competitor
-            comp_name = competitor.get("name", "N/A")
+            comp_name = competitor.get("basic_info", {}).get("name", "N/A")
             section += f"#### {i}. {comp_name}\n"
             
             # Informazioni base
-            section += f"**Dominio:** {competitor.get('domain', 'N/A')}\n"
-            section += f"**URL:** {competitor.get('url', 'N/import streamlit as st
+            basic_info = competitor.get("basic_info", {})
+            section += f"**Dominio:** {basic_info.get('domain', 'N/A')}\n"
+            section += f"**URL:** {basic_import streamlit as st
 import requests
 import json
 import re
@@ -2413,4 +2413,5 @@ class AdvancedSEMRushAgent:
             return {
                 "monthly_organic_traffic": overview.get("organic_traffic", 0),
                 "traffic_value": overview.get("organic_cost", 0),
-                "pai
+                "paid_traffic": overview.get("adwords_traffic", 0),
+                "
